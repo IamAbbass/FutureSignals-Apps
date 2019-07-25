@@ -1,0 +1,33 @@
+{
+  "prepare_queue": {
+    "installed": [],
+    "uninstalled": []
+  },
+  "config_munge": {
+    "files": {}
+  },
+  "installed_plugins": {
+    "cordova-plugin-whitelist": {
+      "PACKAGE_NAME": "futuresignals.findmasjid"
+    },
+    "cordova-plugin-advanced-geolocation": {
+      "PACKAGE_NAME": "futuresignals.findmasjid"
+    },
+    "cordova-plugin-permission": {
+      "PACKAGE_NAME": "futuresignals.findmasjid"
+    },
+    "cordova-plugin-geolocation-android-activator": {
+      "PACKAGE_NAME": "futuresignals.findmasjid"
+    },
+    "cordova-plugin-statusbar": {
+      "PACKAGE_NAME": "futuresignals.findmasjid"
+    },
+    "cordova-plugin-network-information": {
+      "PACKAGE_NAME": "futuresignals.findmasjid"
+    },
+    "cordova-plugin-appminimize": {
+      "PACKAGE_NAME": "futuresignals.findmasjid"
+    }
+  },
+  "dependent_plugins": {}
+}

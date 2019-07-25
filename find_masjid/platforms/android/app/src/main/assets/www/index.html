@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="viewport" content="initial-scale=1, width=device-width, viewport-fit=cover">
+        <link rel="stylesheet" type="text/css" href="css/index.css">
+        <title>Find Masjid</title>
+    </head>
+    <body>
+        <div class="no_internet">
+          <div class="no_internet_content">
+            <img src="img/no-internet.png"/>
+            <span><strong>No Internet</strong></span>
+            <span>Will connect automatically when possible..</span>
+          </div>
+        </div>
+
+        <div id="map"></div>
+        <button class="get_location">
+          <img src="img/place-find.png"/> <span>Find Masjid</span>
+        </button>
+        <button class="show_more">
+          <img src="img/place-find.png"/> <span>More</span>
+        </button>
+        <button class="start_over">
+          <img src="img/clear.png"/>
+        </button>
+        <button class="sneakbar"></button>
+
+        <script src="js/jquery.min.js"></script>
+        <script type="text/javascript" src="cordova.js"></script>
+        <!--
+        <script type="text/javascript" src="js/index.js"></script>
+        -->
+        <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCyXh0c0m6Sjjk2AHG5BuijDPmoQUoloSI&libraries=places&callback=initMap"
+    async defer></script>
+
+        <script>
+
+          var map;
+          var my_location_marker;
+          var infowindow;
+
+          var stop_searching_GPS = false;
+          var global_gps = [];
+
+          var radius_min = 100;
+          var radius = radius_min;
+
+          var already_drawn_places = [];
+
+          var start_finding_place = false;
+
+          var once_connected = false;
+
+          var calculateAndDisplayRoute;
+          var directionsDisplay;
+          var directionsService;
+          var place_type = "mosque";
+
+          var url_log = [];
+
+
+          function initMap() {
+            once_connected = true;
+
+            map = new google.maps.Map(document.getElementById('map'), {
+              center: {lat: 24.8776329, lng: 66.9572787},
+              zoom: 2,
+              disableDefaultUI: true,
+              /*
+              zoomControl: false,
+              mapTypeControl: true,
+              scaleControl: false,
+              streetViewControl: false,
+              rotateControl: true,
+              fullscreenControl: false
+              */
+            });
+
+            infowindow = new google.maps.InfoWindow({content: "You"});
+
+            google.maps.event.addListener(map, 'click', function() {
+                infowindow.close();
+            });
+
+            /*
+            google.maps.event.addListener(map, 'idle', function() {
+                if(already_drawn_places.legth == 0){
+                  $(".get_location").fadeIn();
+                }else{
+                  $(".show_more").fadeIn();
+                }
+            });
+
+            google.maps.event.addListener(map, 'drag', function() {
+                $(".get_location, .show_more").fadeOut();
+            });
+            */
+
+
+            //directions
+            directionsDisplay = new google.maps.DirectionsRenderer;
+            directionsService = new google.maps.DirectionsService;
+            directionsDisplay.setMap(map);
+
+          }
+
+
+          var app = {
+            initialize: function() {
+              document.addEventListener('deviceready', this.onDeviceReady.bind(this), false);
+              document.addEventListener('backbutton', function(e){
+                e.preventDefault();
+                window.plugins.appMinimize.minimize();
+              }, false);
+            },
+            onDeviceReady: function() {
+              this.receivedEvent('deviceready');
+              StatusBar.hide();
+
+              document.addEventListener("online", function(){
+                $(".no_internet").hide();
+
+                if(once_connected == false){
+                  window.location.replace("index.html");
+                }
+
+              }, false);
+
+              document.addEventListener("offline", function(){
+                $(".no_internet").fadeIn();
+              }, false);
+
+              function sneakbar(text){
+                $(".sneakbar").hide();
+                if(text.length > 0){
+                  $(".sneakbar").html(text).slideDown();
+                }
+              }
+
+              function request_gps_permission(){
+                var Permission = window.plugins.Permission;
+                var permission = 'android.permission.ACCESS_FINE_LOCATION';
+                Permission.has(permission, function(results) {
+                    if (!results[permission]) {
+                        sneakbar("Allow GPS Location Permission to find nearby Masjid");
+                        Permission.request(permission, function(results) {
+                          if(results[permission] == false){
+                            request_gps_permission();
+                          }else{
+                            get_gps_location();
+                          }
+                        }, request_gps_permission);
+                    }else{
+                      get_gps_location();
+                    }
+                }, request_gps_permission);
+              }
+
+              function enable_gps(){
+                navigator.geolocation.activator.askActivation(function(response) {
+                  console.log("GPS Activated");
+                  get_gps_location();
+                }, function(response) {
+                  console.log("GPS Not Activated");
+                  setTimeout(function(){
+                    enable_gps();
+                  },1000);
+                });
+              }
+
+              var wait_for_best_GPS;
+              var my_location_done = false;
+
+              function get_gps_location(){
+
+                if(stop_searching_GPS == false){
+                  sneakbar("Getting GPS location ..");
+                }
+
+                AdvancedGeolocation.start(function(success){
+                  if(stop_searching_GPS == false){
+                    var gps_parse = JSON.parse(success);
+                    var accuracy  = +gps_parse.accuracy;
+                    var latitude  = +gps_parse.latitude;
+                    var longitude = +gps_parse.longitude;
+
+                    if(gps_parse.provider == "network"){
+                      try{clearTimeout(wait_for_best_GPS);}catch(e){}
+                      sneakbar("");
+                      wait_for_best_GPS = setTimeout(function(){
+                        stop_searching_GPS = true;
+                        console.log("This should call once");
+                        console.table(gps_parse);
+                        global_gps['lat'] = latitude;
+                        global_gps['lon'] = longitude;
+
+                        if(start_finding_place == true){
+                          nearby_search(latitude,longitude,null);
+
+                          var zoomLevel 	= parseInt(Math.log2(591657550.5 / (radius * 45))) + 1;
+                          map.setZoom(zoomLevel);
+                          map.setCenter(new google.maps.LatLng(latitude, longitude));
+                          my_location_marker = new google.maps.Marker({
+                            position: {lat: latitude, lng: longitude},
+                            icon: "img/me.png",
+                            map: map,
+                            animation: google.maps.Animation.DROP
+                          });
+                        }else{
+                          sneakbar("I am ready to find nearest Masjid for you ♥");
+
+                          var zoomLevel 	= parseInt(Math.log2(591657550.5 / (radius * 45))) + 1;
+                          map.setZoom(zoomLevel);
+                          map.setCenter(new google.maps.LatLng(latitude, longitude));
+                          my_location_marker = new google.maps.Marker({
+                            position: {lat: latitude, lng: longitude},
+                            icon: "img/me.png",
+                            map: map,
+                            animation: google.maps.Animation.DROP
+                          });
+                        }
+                      },2000);
+
+                    }else if(gps_parse.provider == "gps"){
+
+                      sneakbar("");
+                      try{clearTimeout(wait_for_best_GPS);}catch(e){}
+                      stop_searching_GPS = true;
+                      console.log("This should call once");
+                      console.table(gps_parse);
+                      global_gps['lat'] = latitude;
+                      global_gps['lon'] = longitude;
+                      if(start_finding_place == true){
+                        nearby_search(latitude,longitude,null);
+
+                        var zoomLevel 	= parseInt(Math.log2(591657550.5 / (radius * 45))) + 1;
+                        map.setZoom(zoomLevel);
+                        map.setCenter(new google.maps.LatLng(latitude, longitude));
+                        my_location_marker = new google.maps.Marker({
+                          position: {lat: latitude, lng: longitude},
+                          icon: "img/me.png",
+                          map: map,
+                          animation: google.maps.Animation.DROP
+                        });
+
+                      }else{
+                        sneakbar("I am ready to find nearest Masjid for you ♥");
+
+                        var zoomLevel 	= parseInt(Math.log2(591657550.5 / (radius * 45))) + 1;
+
+                        try{map.setZoom(zoomLevel);}catch(e){}
+
+                        map.setCenter(new google.maps.LatLng(latitude, longitude));
+                        my_location_marker = new google.maps.Marker({
+                          position: {lat: latitude, lng: longitude},
+                          icon: "img/me.png",
+                          map: map,
+                          animation: google.maps.Animation.DROP
+                        });
+
+                      }
+                    }
+                  }else{
+                    if(start_finding_place == true){
+                      nearby_search(global_gps['lat'],global_gps['lon'],null);
+                    }
+                  }
+                },function(error){
+                   error = $.parseJSON(error);
+                   if(error.provider == "gps"){
+                     sneakbar("Please turn on device GPS location");
+                     enable_gps();
+                   }
+                },{
+                  "minTime":500,         // Min time interval between updates (ms)
+                  "minDistance":1,       // Min distance between updates (meters)
+                  "noWarn":true,         // Native location provider warnings
+                  "providers":"all",     // Return GPS, NETWORK and CELL locations
+                  "useCache":true,       // Return GPS and NETWORK cached locations
+                  "satelliteData":false, // Return of GPS satellite info
+                  "buffer":false,        // Buffer location data
+                  "bufferSize":0,        // Max elements in buffer
+                  "signalStrength":false // Return cell signal strength data
+               });
+              }
+
+              var demo_info_window = false;
+
+              function draw_points(results){
+                $(results).each(function(key,value){
+                  var lat       = value.geometry.location.lat;
+                  var lng       = value.geometry.location.lng;
+                  var name      = value.name;
+                  var icon      = value.icon;
+                  var place_id  = value.place_id;
+                  var rating    = value.rating;
+                  var user_ratings_total = value.user_ratings_total;
+
+                  if($.inArray(place_id,already_drawn_places) == -1){
+                    already_drawn_places.push(place_id);
+
+                    try{
+                      var photo_ref = value.photos[0].photo_reference;
+                      var photo     = "https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference="+photo_ref+"&key=AIzaSyCyXh0c0m6Sjjk2AHG5BuijDPmoQUoloSI";
+                    }catch(e){
+                    }
+
+                    var decide_icon = null;
+                    if(isNaN(rating) || rating < 4){
+                      decide_icon = "img/place-sm.png";
+                    }else{
+                      decide_icon = "img/place-sm-vip.png";
+                    }
+
+                    marker = new google.maps.Marker({
+                      position: new google.maps.LatLng(lat, lng),
+                      map: map,
+                      icon: decide_icon,
+                      animation: google.maps.Animation.DROP
+                    });
+
+                    if(isNaN(rating) || rating == "UNDEFINED"){
+                      var show_rating = "";
+                    }else{
+                      var show_rating = "Rating: "+rating+" ("+user_ratings_total+")";
+                    }
+
+                    if(radius == radius_min){
+                      if(demo_info_window == false){
+                        setTimeout(function(){
+                          infowindow.setContent(
+                            "<img alt='' class='place_dp' src='"+photo+"' />"+
+                            "<p class='place_name'>"+name+"</p>"+
+                            show_rating+
+                            "<button class='display_route' lat='"+lat+"' lng='"+lng+"'>Display Route</button>");
+
+                          infowindow.open(map, marker);
+                        },500);
+                        demo_info_window = true;
+                      }
+                    }
+
+                    if(isNaN(rating) || rating == "UNDEFINED"){
+                      var show_rating = "";
+                    }else{
+                      var show_rating = "Rating: "+rating+" ("+user_ratings_total+")";
+                    }
+
+                    google.maps.event.addListener(marker, 'click', (function(marker, key) {
+                      return function() {
+                        try{infowindow.close();}catch(e){}
+
+                        infowindow.setContent(
+                          "<img alt='' class='place_dp' src='"+photo+"' />"+
+                          "<p class='place_name'>"+name+"</p>"+
+                          show_rating+
+                          "<button class='display_route' lat='"+lat+"' lng='"+lng+"'>Display Route</button>");
+
+                        infowindow.open(map, marker);
+                      }
+                    })(marker, key));
+
+                  }
+                });
+
+                sneakbar("I found "+(already_drawn_places.length)+" Masjid(s) in "+radius+"m radius ♥");
+
+              }
+
+              function nearby_search(lat,lon,pagetoken){
+
+                  try{infowindow.close();}catch(e){}
+
+                  if(lat == undefined && lon == undefined){
+                    sneakbar("Waiting for your location..");
+                    return false;
+                  }
+
+                  if(pagetoken == null){
+                    var url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location="+lat+","+lon+"&radius="+radius+"&type="+place_type+"&key=AIzaSyCyXh0c0m6Sjjk2AHG5BuijDPmoQUoloSI";
+                  }else{
+                    var url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location="+lat+","+lon+"&radius="+radius+"&type="+place_type+"&key=AIzaSyCyXh0c0m6Sjjk2AHG5BuijDPmoQUoloSI&pagetoken="+pagetoken;
+                  }
+
+                  if($.inArray(url,url_log) == -1){
+                    url_log.push(url);
+                  }else{
+                    console.log("exists");
+                    return false;
+                  }
+
+                  $.ajax({
+                  	url:url, //php page
+                  	type: 'GET',
+                  	dataType: 'json',
+                  	beforeSend: function(xhr){
+                      sneakbar("Finding Masjid in "+radius+"m radius");
+                  	},
+                  	success: function(places){
+                      //places = $.parseJSON(places);
+                      var length = (places.results).length;
+
+                      if(length == 0){
+                        if(already_drawn_places.length == 0){
+                          radius += 250; //auto
+                          nearby_search(lat,lon,null);
+                        }
+                      }else{
+                        var zoomLevel 	= parseInt(Math.log2(591657550.5 / (radius * 45))) + 1;
+                        map.setZoom(zoomLevel);
+                        draw_points(places.results);
+                      }
+
+                      setTimeout(function(){
+                        $(".show_more span").html("More ("+(radius+250)+"m)");
+                        $(".show_more").fadeIn();
+                      },1000);
+
+
+                      try{
+                        var next_page_token = places.next_page_token;
+                        if(next_page_token.length > 0){
+                          setTimeout(function(){
+                            nearby_search(lat,lon,next_page_token);
+                          },1500);
+                        }
+                      }catch(e){}
+
+                  	}, error:function(){
+                      sneakbar("No Internet :( ");
+                      setTimeout(function(){
+                        nearby_search(lat,lon,pagetoken);
+                      },5000);
+                  	}
+                  });
+
+                  //$.get(url,function(places){
+
+                  //});
+
+
+
+              }
+
+              $(document).ready(function(){
+                $(".get_location").fadeIn();
+                sneakbar("Hello, I can find nearest Masjid for you ♥");
+
+                request_gps_permission();
+
+                $(".get_location").click(function(){
+                  start_finding_place = true;
+                  $(this).fadeOut();
+
+                  nearby_search(global_gps['lat'],global_gps['lon'],null);
+
+                  setTimeout(function(){
+                    //request_gps_permission();
+                  },100);
+                });
+
+                $(".show_more").click(function(){
+                    $(this).fadeOut();
+                    setTimeout(function(){
+                      radius += 250;
+                      nearby_search(global_gps['lat'],global_gps['lon'],null);
+                    },100);
+                });
+
+
+                $(document).delegate(".display_route","click",function(){
+                  var lat = +$(this).attr("lat");
+                  var lng = +$(this).attr("lng");
+
+                  var origin = {lat: global_gps['lat'], lng: global_gps['lon']};
+                  var destination = {lat: lat, lng: lng};
+
+                  try{infowindow.close();}catch(e){}
+
+                  directionsService.route({
+                    origin: origin,
+                    destination: destination,
+                    // Note that Javascript allows us to access the constant
+                    // using square brackets and a string value as its
+                    // "property."
+                    travelMode: google.maps.TravelMode['WALKING']
+                  }, function(response, status) {
+                    if (status == 'OK') {
+                      directionsDisplay.setDirections(response);
+                    } else {
+                      sneakbar('Directions request failed due to ' + status);
+                    }
+                  });
+                });
+
+
+                $(".start_over").click(function(){
+                  window.location.replace("index.html");
+                });
+
+              });
+
+            },
+            receivedEvent: function(id) {
+            }
+          };
+          app.initialize();
+        </script>
+    </body>
+</html>

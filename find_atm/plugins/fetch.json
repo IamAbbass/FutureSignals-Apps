@@ -1,0 +1,66 @@
+{
+  "cordova-plugin-whitelist": {
+    "source": {
+      "type": "registry",
+      "id": "cordova-plugin-whitelist@1"
+    },
+    "is_top_level": true,
+    "variables": {}
+  },
+  "cordova-plugin-advanced-geolocation": {
+    "source": {
+      "type": "registry",
+      "id": "https://github.com/esri/cordova-plugin-advanced-geolocation.git"
+    },
+    "is_top_level": true,
+    "variables": {}
+  },
+  "cordova-plugin-permission": {
+    "source": {
+      "type": "registry",
+      "id": "cordova-plugin-permission"
+    },
+    "is_top_level": true,
+    "variables": {}
+  },
+  "cordova-plugin-geolocation-android-activator": {
+    "source": {
+      "type": "registry",
+      "id": "cordova-plugin-geolocation-android-activator"
+    },
+    "is_top_level": true,
+    "variables": {}
+  },
+  "cordova-plugin-compat": {
+    "source": {
+      "type": "registry",
+      "id": "cordova-plugin-compat@^1.0.0"
+    },
+    "is_top_level": false,
+    "variables": {}
+  },
+  "cordova-plugin-statusbar": {
+    "source": {
+      "type": "registry",
+      "id": "cordova-plugin-statusbar@2.4.3"
+    },
+    "is_top_level": true,
+    "variables": {}
+  },
+  "cordova-plugin-network-information": {
+    "source": {
+      "type": "registry",
+      "id": "cordova-plugin-network-information"
+    },
+    "is_top_level": true,
+    "variables": {}
+  },
+  "cordova-plugin-appminimize": {
+    "source": {
+      "type": "registry",
+      "id": "cordova-plugin-appminimize@^1.0.1"
+    },
+    "is_top_level": true,
+    "variables": {}
+  }
+}
